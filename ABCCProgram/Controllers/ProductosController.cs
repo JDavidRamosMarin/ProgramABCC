@@ -41,9 +41,9 @@ namespace ABCCProgram.Controllers
                 NombreArticulo = productos.NombreArticulo,
                 Marca = productos.Marca,
                 Modelo = productos.Modelo,
-                Departamento = productos.Departamento,
-                Clase = productos.Clase,
-                Familia = productos.Familia,
+                DepartamentoId = productos.DepartamentoId,
+                ClaseId = productos.ClaseId,
+                FamiliaId = productos.FamiliaId,
                 FechaDeAlta = productos.FechaDeAlta,
                 Stock = productos.Stock,
                 Cantidad = productos.Cantidad,
@@ -80,7 +80,7 @@ namespace ABCCProgram.Controllers
                 return BadRequest();
             }
 
-            var prod = await context.Productos.FirstOrDefaultAsync(prodDB => prodDB.Sku == sku);
+            var prod = await context.Productos.Include(prodDB => prodDB.DepartamentoTab).FirstOrDefaultAsync(prodDB => prodDB.Sku == sku);
 
             // Verifica que exita el Sku dentro de la base de datos
             if (prod == null)
