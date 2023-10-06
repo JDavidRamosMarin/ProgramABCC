@@ -66,7 +66,7 @@ namespace ABCCProgram.Controllers
         }
 
         [HttpDelete("{sku:int}")]
-        public async Task<ActionResult> DelProd(Productos producto, int sku)
+        public async Task<ActionResult> DelProd(int sku)
         {
             var existprod = await context.Productos.AnyAsync(prodDB => prodDB.Sku == sku);
 
@@ -75,7 +75,9 @@ namespace ABCCProgram.Controllers
                 return NotFound();
             }
 
-            context.Remove(new Productos() { Sku = sku });
+            var prod = await context.Productos.Where(x => x.Sku == sku).FirstOrDefaultAsync();
+
+            context.Productos.Remove(prod);
             await context.SaveChangesAsync();
             return Ok();
         }
