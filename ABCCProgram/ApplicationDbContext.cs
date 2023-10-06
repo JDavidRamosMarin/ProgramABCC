@@ -11,5 +11,8 @@ namespace ABCCProgram
         }
 
         public DbSet<Productos> Productos { get; set; }
+        public DbSet<Departamento> Departamentos { get; set; }
+        public DbSet<Clase> Clases { get; set; }
+        public DbSet<Familia> Familias { get; set; }
     }
 }

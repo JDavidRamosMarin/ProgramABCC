@@ -3,6 +3,7 @@ using AutoMapper;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace ABCCProgram.Controllers
 {
@@ -21,9 +22,48 @@ namespace ABCCProgram.Controllers
         [HttpPost]
         public async Task<ActionResult> CreateProd(Productos productos)
         {
-            context.Add(productos);
+            
+            var exist = await context.Productos.AnyAsync(prod => prod.Sku == productos.Sku);
+            var existNom = await context.Productos.AnyAsync(prod => prod.NombreArticulo == productos.NombreArticulo);
+
+            if (exist && existNom)
+            {
+                return BadRequest();
+            }
+            else if (exist || existNom)
+            {
+                return BadRequest();
+            }
+
+            context.Add(new Productos() 
+            {
+                Sku = productos.Sku,
+                NombreArticulo = productos.NombreArticulo,
+                Marca = productos.Marca,
+                Modelo = productos.Modelo,
+                Departamento = productos.Departamento,
+                Clase = productos.Clase,
+                Familia = productos.Familia,
+                FechaDeAlta = productos.FechaDeAlta,
+                Stock = productos.Stock,
+                Cantidad = productos.Cantidad,
+                Descontinuado = 0,
+                FechaDeBaja = new DateTime(1900, 01, 01)
+            });
             await context.SaveChangesAsync();
             return Ok();
+
+            //if (exist && existNom )
+            //{
+            //    return BadRequest();
+            //} else if (exist || existNom)
+            //{
+            //    return BadRequest();
+            //}
+
+            //context.Add(productos);
+            //await context.SaveChangesAsync();
+            //return Ok();
         }
 
         [HttpGet]
@@ -50,8 +90,7 @@ namespace ABCCProgram.Controllers
 
             return Ok(prod);
         }
-
-        
+    
         [HttpPut("{sku:int}")]
         public async Task<ActionResult> PutProd(Productos producto, int sku)
         {
@@ -65,6 +104,7 @@ namespace ABCCProgram.Controllers
             return Ok();
         }
 
+        // https://es.stackoverflow.com/questions/354425/borrar-registro-ignorando-id-identity-ef-c
         [HttpDelete("{sku:int}")]
         public async Task<ActionResult> DelProd(int sku)
         {
@@ -74,6 +114,8 @@ namespace ABCCProgram.Controllers
             {
                 return NotFound();
             }
+
+            // Busca los Datos del producto
 
             var prod = await context.Productos.Where(x => x.Sku == sku).FirstOrDefaultAsync();
 

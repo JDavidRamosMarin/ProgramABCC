@@ -17,5 +17,8 @@ namespace ABCCProgram.Entidades
         public int Cantidad { get; set; }
         public int Descontinuado { get; set; }
         public DateTime FechaDeBaja { get; set; }
+        public Departamento DepartamentoTab { get; set; }
+        public Clase ClaseTab { get; set; }
+        public Familia FamiliaTab { get; set; }
     }
 }
