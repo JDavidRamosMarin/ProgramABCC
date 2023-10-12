@@ -1,9 +1,12 @@
-﻿using ABCCProgram.Entidades;
+﻿using ABCCProgram.DTOs;
+using ABCCProgram.Entidades;
+using ABCCProgram.Validaciones;
 using AutoMapper;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using System.ComponentModel.DataAnnotations;
 
 namespace ABCCProgram.Controllers
 {
@@ -13,18 +16,19 @@ namespace ABCCProgram.Controllers
     {
         private readonly ApplicationDbContext context;
         private readonly IMapper mapper;
-        public ProductosController(ApplicationDbContext context) /*, IMapper mapper)*/
+        public ProductosController(ApplicationDbContext context, IMapper mapper)
         {
             this.context = context;
-            //this.mapper = mapper;
+            this.mapper = mapper;
         }
 
-        [HttpPost]
-        public async Task<ActionResult> CreateProd(Productos productos)
-        {
-            
-            var exist = await context.Productos.AnyAsync(prod => prod.Sku == productos.Sku);
-            var existNom = await context.Productos.AnyAsync(prod => prod.NombreArticulo == productos.NombreArticulo);
+        [HttpPost("CrearProducto")]
+        public async Task<ActionResult> CreateProd(ProductosCreacionDTO productosCreacionDTO)
+        {          
+            var exist = await context.Productos
+                .AnyAsync(prod => prod.Sku == productosCreacionDTO.Sku);
+            var existNom = await context.Productos
+                .AnyAsync(prod => prod.NombreArticulo == productosCreacionDTO.NombreArticulo);
 
             if (exist && existNom)
             {
@@ -35,52 +39,61 @@ namespace ABCCProgram.Controllers
                 return BadRequest();
             }
 
-            context.Add(new Productos() 
+            if (productosCreacionDTO.Cantidad > productosCreacionDTO.Stock)
             {
-                Sku = productos.Sku,
-                NombreArticulo = productos.NombreArticulo,
-                Marca = productos.Marca,
-                Modelo = productos.Modelo,
-                DepartamentoId = productos.DepartamentoId,
-                ClaseId = productos.ClaseId,
-                FamiliaId = productos.FamiliaId,
-                FechaDeAlta = productos.FechaDeAlta,
-                Stock = productos.Stock,
-                Cantidad = productos.Cantidad,
+                return BadRequest("La cantidad no puede exceder el stock en la tienda.");
+            }
+
+            var prodCDTO = new Productos()
+            {
+                Sku = productosCreacionDTO.Sku,
+                NombreArticulo = productosCreacionDTO.NombreArticulo,
+                Marca = productosCreacionDTO.Marca,
+                Modelo = productosCreacionDTO.Modelo,
+                DepartamentoId = productosCreacionDTO.DepartamentoId,
+                ClaseId = productosCreacionDTO.ClaseId,
+                FamiliaId = productosCreacionDTO.FamiliaId,
+                FechaDeAlta = productosCreacionDTO.FechaDeAlta,
+                Stock = productosCreacionDTO.Stock,
+                Cantidad = productosCreacionDTO.Cantidad,
                 Descontinuado = 0,
                 FechaDeBaja = new DateTime(1900, 01, 01)
-            });
-            await context.SaveChangesAsync();
-            return Ok();
+            };
 
-            //if (exist && existNom )
+            //if (prodCDTO.Stock > prodCDTO.Cantidad)
             //{
-            //    return BadRequest();
-            //} else if (exist || existNom)
-            //{
-            //    return BadRequest();
+            //    return BadRequest("No hay suficiente stock.");
             //}
 
-            //context.Add(productos);
-            //await context.SaveChangesAsync();
-            //return Ok();
+            context.Add(prodCDTO);
+            await context.SaveChangesAsync();
+            return Ok();
         }
 
         [HttpGet]
-        public async Task<ActionResult<List<Productos>>> Get()
+        public async Task<ActionResult<List<ProductosDTO>>> Get()
         {
-            return await context.Productos.ToListAsync();
+            var prod = await context.Productos
+                .Include(prodDB => prodDB.DepartamentoTab)
+                .Include(prodDB => prodDB.ClaseTab)
+                .Include(prodDB => prodDB.FamiliaTab)
+                .ToListAsync();
+            return mapper.Map<List<ProductosDTO>>(prod);
         }
 
         [HttpGet("{sku:int}")]
-        public async Task<ActionResult<Productos>> GetBySKU(int sku)
+        public async Task<ActionResult<ProductosDTO>> GetBySKU(int sku)
         {
             if (sku == 0)
             {
                 return BadRequest();
             }
 
-            var prod = await context.Productos.Include(prodDB => prodDB.DepartamentoTab).FirstOrDefaultAsync(prodDB => prodDB.Sku == sku);
+            var prod = await context.Productos
+                .Include(prodDB => prodDB.DepartamentoTab)
+                .Include(prodDB => prodDB.ClaseTab)
+                .Include(prodDB => prodDB.FamiliaTab)
+                .FirstOrDefaultAsync(prodDB => prodDB.Sku == sku);
 
             // Verifica que exita el Sku dentro de la base de datos
             if (prod == null)
@@ -88,23 +101,33 @@ namespace ABCCProgram.Controllers
                 return NotFound();
             }
 
-            return Ok(prod);
+            var dto = mapper.Map<ProductosDTO>(prod);
+            return dto;
         }
-    
+
         [HttpPut("{sku:int}")]
-        public async Task<ActionResult> PutProd(Productos producto, int sku)
+        public async Task<ActionResult> PutProd(ProductosActualizacionDTO productosActualizacionDTO, int sku)
         {
-            if (producto.Sku != sku)
+            var existprod = await context.Productos.AnyAsync(prodDB => prodDB.Sku == sku);
+
+            if (!existprod)
             {
-                return BadRequest();
+                return NotFound("No existe este articulo.");
             }
 
-            context.Update(producto);
+            var prodDB = await context.Productos.FirstOrDefaultAsync(x => x.Sku == sku);
+
+            prodDB = mapper.Map(productosActualizacionDTO, prodDB);
+            
+            if (prodDB.Cantidad > prodDB.Stock )
+            {
+                return BadRequest("No hay suficiente Stock.");
+            }
+
             await context.SaveChangesAsync();
-            return Ok();
+            return NoContent();
         }
 
-        // https://es.stackoverflow.com/questions/354425/borrar-registro-ignorando-id-identity-ef-c
         [HttpDelete("{sku:int}")]
         public async Task<ActionResult> DelProd(int sku)
         {
@@ -115,8 +138,6 @@ namespace ABCCProgram.Controllers
                 return NotFound();
             }
 
-            // Busca los Datos del producto
-
             var prod = await context.Productos.Where(x => x.Sku == sku).FirstOrDefaultAsync();
 
             context.Productos.Remove(prod);
@@ -124,5 +145,7 @@ namespace ABCCProgram.Controllers
             return Ok();
         }
 
+
+       
     }
 }

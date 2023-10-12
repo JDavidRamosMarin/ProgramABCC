@@ -4,6 +4,6 @@
     {
         public int Id { get; set; }
         public string NomFamilia { get; set; }
-        public List<Productos> Productos { get; set; }
+        //public List<Productos> Productos { get; set; }
     }
 }
